@@ -17,7 +17,7 @@ The system is designed with a 5-Layer architecture:
 
 ## 🏗 System Architecture (系統架構)
 
-![Architecture Diagram](images/architecture_flow.jpg)
+![Architecture Diagram](images/architecture_flow.png)
 *(This diagram visualizes the logic within `src/run_pipeline.py`)*
 
 ## ✨ Key Features
