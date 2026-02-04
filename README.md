@@ -106,4 +106,3 @@ python -m src.detect_anomaly
 │   └── to_stix.py         # STIX 2.1 object builder
 ├── docker-compose.yml  # OpenSearch & Dashboards setup
 └── requirements.txt    # Python dependencies
-```
