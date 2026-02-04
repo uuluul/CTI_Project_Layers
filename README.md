@@ -74,3 +74,36 @@ The system is designed with a 5-Layer architecture:
 Set up the vector index in OpenSearch.
 ```bash
 python -m src.setup_opensearch
+
+### 2. Ingest Baseline Logs
+Simulate normal system behavior by ingesting logs into the vector database.
+```bash
+python -m src.ingest_logs
+
+### 3. Run CTI Pipeline (Layer 1 & 2)
+Convert a sample CTI report (data/sample_cti.txt) into STIX format.
+```bash
+python -m src.run_pipeline
+
+### 4. Run Detection (Layer 4 & 5)
+Check for known indicators (Rules) and unknown anomalies (AI).
+```bash
+# Rule-based detection
+python -m src.detect_rules
+
+# Semantic anomaly detection
+python -m src.detect_anomaly
+
+
+## 📂Project Structure (專案結構)
+```Plaintext
+├── data/               # Raw CTI samples and mock data
+├── out/                # Generated STIX JSON bundles
+├── src/
+│   ├── run_pipeline.py    # Main CTI extraction logic
+│   ├── detect_rules.py    # Layer 4: Exact match detection
+│   ├── detect_anomaly.py  # Layer 5: Vector-based detection
+│   ├── ingest_logs.py     # Log ingestion & embedding
+│   └── to_stix.py         # STIX 2.1 object builder
+├── docker-compose.yml  # OpenSearch & Dashboards setup
+└── requirements.txt    # Python dependencies
