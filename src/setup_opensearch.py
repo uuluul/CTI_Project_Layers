@@ -29,13 +29,19 @@ def create_index():
                 # 定義向量
                 "log_vector": {
                     "type": "knn_vector",
-                    "dimension": 1536,  # OpenAI text-embedding-3-small 的維度
+                    "dimension": 1536,
                     "method": {
                         "name": "hnsw",
-                        "space_type": "l2",
-                        "engine": "faiss"
+                        "space_type": "cosinesimil", 
+                        "engine": "nmslib",           
+                        "parameters": {
+                            "ef_construction": 128,
+                            "m": 24
+                        }
                     }
-                }
+                },
+                "log_text": {"type": "text"},
+                "log_source": {"type": "keyword"} # 新增 filter 欄位
             }
         }
     }

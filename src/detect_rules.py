@@ -6,7 +6,7 @@ import os
 STIX_FILE = "out/bundle_stix21.json" 
 def load_stix_indicators(filepath):
     """
-    從 STIX 檔案中提取出 blacklist
+    從 STIX 檔案中提取出黑名單
     """
     if not os.path.exists(filepath):
         print(f"  找不到 STIX 檔案: {filepath}")

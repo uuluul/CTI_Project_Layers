@@ -5,7 +5,7 @@
 ![STIX 2.1](https://img.shields.io/badge/Standard-STIX%202.1-orange)
 ![License](https://img.shields.io/badge/License-MIT-lightgrey)
 
-## 📖 Project Overview (專案簡介)
+## 📖 Project Overview
 
 This project implements a **Next-Gen Automated CTI Defense System**. It leverages Large Language Models (LLMs) to transform unstructured Cyber Threat Intelligence (CTI) reports into structured STIX 2.1 objects and integrates with OpenSearch for a **Hybrid Detection Mechanism**.
 
@@ -15,7 +15,7 @@ The system is designed with a 5-Layer architecture:
 * **Layer 4:** Rule-Based Detection (Known Threats).
 * **Layer 5:** Semantic Anomaly Detection (Unknown Threats via Vector Search).
 
-## 🏗 System Architecture (系統架構)
+## 🏗 System Architecture
 
 ![Architecture Diagram](images/CTI_image.png)
 *(This diagram visualizes the logic within `src/run_pipeline.py`)*
@@ -28,11 +28,28 @@ The system is designed with a 5-Layer architecture:
     * **Rule-Based**: Matches logs against CTI Indicators (IPs, Domains, Hashes).
     * **Adaptive Semantic Anomaly Detection**: 
         * **Algorithm**: Uses Cosine Similarity on HNSW indexes (Nmslib) for high-dimensional vector analysis.
-        * **Dynamic Calibration**: Automatically calculates P95 thresholds based on statistical distribution of baseline logs, removing the need for manual tuning.
+        * **Dynamic Calibration**: Automatically calculates **P95 thresholds** based on statistical distribution of baseline logs, removing the need for manual tuning.
         * **Cost-Efficient**: Optimizes vector retrieval to minimize LLM API usage during calibration.
 4.  **Automated Pipeline**: End-to-end flow from report ingestion to threat alert generation.
-5.  **Adaptive Anomaly Detection**: 
-Instead of a hardcoded threshold, the system automatically calibrates the anomaly score threshold (P99) based on the statistical distribution of existing logs, significantly reducing false positives.
+
+## 🛡️ Deep Dive: Layer 5 Anomaly Detection
+
+This module implements a "Zero-Day" detection mechanism using **Unsupervised Learning**. It identifies threats based on semantic deviation rather than static signatures.
+
+### 1. Core Algorithms
+* **Vector Space Model**: Utilizes **OpenAI `text-embedding-3-small`** (1536 dimensions) to convert unstructured logs into semantic vectors.
+* **Cosine Similarity**: Adopts Cosine Similarity instead of L2 distance to strictly measure the "directional" (contextual) difference, ensuring robustness against log length variations.
+* **HNSW Indexing**: Leverages **OpenSearch k-NN** (Nmslib engine) for millisecond-level retrieval.
+
+### 2. Adaptive Threshold Calibration (P95)
+Instead of a hardcoded threshold, the system automatically learns from the environment:
+1.  **Sampling**: Randomly selects baseline logs ($N=50 \sim 200$) using `function_score`.
+2.  **Self-Exclusion k-NN**: Finds $K$ nearest neighbors ($K=5$) for each sample, strictly **excluding itself** to prevent data leakage.
+3.  **Statistical Logic**:
+    > "If a new log is more different than **95% (P95)** of known normal logs, it is an anomaly."
+
+### 3. Optimization
+* **Vector Reuse**: Retrieves pre-calculated vectors directly from OpenSearch during calibration, reducing LLM API costs and latency by **~90%**.
 
 ## 🚀 Getting Started
 
