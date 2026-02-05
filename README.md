@@ -17,17 +17,22 @@ The system is designed with a 5-Layer architecture:
 
 ## 🏗 System Architecture (系統架構)
 
-![Architecture Diagram](images/architecture_flow.png)
+![Architecture Diagram](images/CTI_image.png)
 *(This diagram visualizes the logic within `src/run_pipeline.py`)*
 
 ## ✨ Key Features
 
-1.  **Unstructured to Structured**: Automatically parses natural language CTI reports (PDF/Txt) into validated STIX 2.1 JSON bundles using OpenAI/Azure GPT models.
+1.  **Unstructured to Structured**: Automatically parses natural language CTI reports (PDF/TXT) into validated STIX 2.1 JSON bundles using OpenAI/Azure GPT models.
 2.  **Vector Database Integration**: Ingests system logs and calculates embeddings for semantic search using OpenSearch k-NN.
 3.  **Hybrid Detection Engine**:
     * **Rule-Based**: Matches logs against CTI Indicators (IPs, Domains, Hashes).
-    * **Semantic-Based**: Detects anomalies by calculating Cosine/L2 distance between new logs and historical baselines.
+    * **Adaptive Semantic Anomaly Detection**: 
+        * **Algorithm**: Uses Cosine Similarity on HNSW indexes (Nmslib) for high-dimensional vector analysis.
+        * **Dynamic Calibration**: Automatically calculates P95 thresholds based on statistical distribution of baseline logs, removing the need for manual tuning.
+        * **Cost-Efficient**: Optimizes vector retrieval to minimize LLM API usage during calibration.
 4.  **Automated Pipeline**: End-to-end flow from report ingestion to threat alert generation.
+5.  **Adaptive Anomaly Detection**: 
+Instead of a hardcoded threshold, the system automatically calibrates the anomaly score threshold (P99) based on the statistical distribution of existing logs, significantly reducing false positives.
 
 ## 🚀 Getting Started
 
