@@ -1,8 +1,7 @@
 version: '3'
 services:
-  # 1. 資料庫核心 (原本就有的)
   opensearch-node:
-    image: opensearchproject/opensearch:latest
+    image: opensearchproject/opensearch:2.11.1
     container_name: opensearch-node
     environment:
       - discovery.type=single-node
@@ -20,9 +19,8 @@ services:
     networks:
       - opensearch-net
 
-  # 2. 圖形化介面 (新加入的 Dashboards)
   opensearch-dashboards:
-    image: opensearchproject/opensearch-dashboards:latest
+    image: opensearchproject/opensearch-dashboards:2.11.1
     container_name: opensearch-dashboards
     ports:
       - "5601:5601" # 這是給人看的網頁 Port
@@ -30,7 +28,7 @@ services:
       - "5601"
     environment:
       OPENSEARCH_HOSTS: '["http://opensearch-node:9200"]'
-      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true" # 配合後端關閉安全性
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: "true"
     networks:
       - opensearch-net
     depends_on:

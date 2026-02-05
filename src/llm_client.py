@@ -21,7 +21,7 @@ class LLMClient:
 
     def extract_json(self, system_prompt: str, user_prompt: str) -> Dict[str, Any]:
         """
-        執行 Chat Completion (自動判斷是 Azure 還是標準 OpenAI)
+        判斷是 Azure 還是 OpenAI
         """
         messages = [
             {"role": "system", "content": system_prompt},

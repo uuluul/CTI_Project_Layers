@@ -81,10 +81,19 @@ Simulate normal system behavior by ingesting logs into the vector database.
 python -m src.ingest_logs
 ```
 ### 3. Run CTI Pipeline (Layer 1 & 2)
-Convert a sample CTI report (data/sample_cti.txt) into STIX format.
+Start the automated pipeline service. The system will continuously monitor the `data/input/` directory for new CTI reports.
 ```bash
 python -m src.run_pipeline
 ```
+
+How to use:
+
+1. Keep the terminal running (Service Mode).
+2. Drop any .txt CTI report into the data/input/ folder.
+3. The system automatically processes it:
+    Success: Moves file to data/processed/ and generates STIX objects in out/.
+    Failure: Moves file to data/error/ for review.
+
 ### 4. Run Detection (Layer 4 & 5)
 Check for known indicators (Rules) and unknown anomalies (AI).
 ```bash
@@ -96,13 +105,40 @@ python -m src.detect_anomaly
 
 ## 📂Project Structure (專案結構)
 ```Plaintext
-├── data/               # Raw CTI samples and mock data
-├── out/                # Generated STIX JSON bundles
+├── data/
+│   ├── input/          # 📥 Drop new .txt reports here
+│   ├── processed/      # ✅ Successfully processed files
+│   ├── error/          # ❌ Failed files (for debugging)
+│   └── sample_cti.txt  # Backup sample
+├── out/                # Generated STIX JSON bundles & Reports
 ├── src/
-│   ├── run_pipeline.py    # Main CTI extraction logic
+│   ├── run_pipeline.py    # Main Automation Service (Daemon)
 │   ├── detect_rules.py    # Layer 4: Exact match detection
 │   ├── detect_anomaly.py  # Layer 5: Vector-based detection
 │   ├── ingest_logs.py     # Log ingestion & embedding
 │   └── to_stix.py         # STIX 2.1 object builder
-├── docker-compose.yml  # OpenSearch & Dashboards setup
+├── docker-compose.yml  # OpenSearch (v2.11.1)
 └── requirements.txt    # Python dependencies
+```
+
+## 🔧 Troubleshooting & Compatibility Note
+
+### 🐧 For Linux (Ubuntu/Kali) Users
+If you encounter errors running commands, please check the following:
+
+1.  **Python Command**:
+    Some Linux distributions require `python3` instead of `python`.
+    ```bash
+    python3 -m src.run_pipeline
+    ```
+
+2.  **Docker Compose Command**:
+    Newer versions of Docker Desktop use `docker compose` (no hyphen).
+    ```bash
+    docker compose up -d
+    # Or if you need sudo permissions:
+    sudo docker compose up -d
+    ```
+
+### 🔒 OpenSearch Version
+This project is pinned to **OpenSearch v2.11.1** in `docker-compose.yml` to ensure stability with the `opensearch-py` client.

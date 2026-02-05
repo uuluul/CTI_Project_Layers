@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-# STIX 2.1 的物件類別
+# STIX 2.1 的類別
 from stix2.v21 import (
     Bundle,
     Identity,
@@ -19,12 +19,10 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 def _make_tlp_marking(tlp: str = "TLP:AMBER") -> MarkingDefinition:
-    # 直接回傳 stix2 內建的標準 TLP:AMBER 物件
-    # 這樣 ID 就會是正確的 (marking-definition--f88d31f6...)
     return TLP_AMBER
 
 def _mitre_external_ref(technique_id: str) -> ExternalReference:
-    # MITRE ATT&CK technique 的標準外部參考
+    # MITRE ATT&CK technique standards
     return ExternalReference(
         source_name="mitre-attack",
         external_id=technique_id,
@@ -73,18 +71,15 @@ def _stix_indicators(ind: Dict[str, Any], created_by_ref: str, marking_id: str, 
     return indicators
 
 def build_stix_bundle(extracted: Dict[str, Any]) -> str:
-    # 抽取 JSON 裡的 confidence（0-100）
     conf = extracted.get("confidence")
     confidence = int(conf) if isinstance(conf, int) else None
 
-    # Producer identity：代表誰產生這份 STIX
     producer = Identity(
         name="LLM CTI-to-STIX PoC",
         identity_class="organization",
         created=_now(),
         modified=_now(),
     )
-    # 這邊先加 TLP，這樣後面的 SOC 也可以用得到
     marking = _make_tlp_marking("TLP:AMBER")
 
     objects: List[Any] = [producer, marking]
