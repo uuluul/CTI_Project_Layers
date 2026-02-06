@@ -90,7 +90,9 @@ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin 
     ```
 
 2.  **Set up Virtual Environment**
+
     *Note: Ubuntu users note: You may need to install the venv package first: sudo apt install python3.10-venv*
+
     ```bash
     python -m venv .venv
     source .venv/bin/activate  # Mac/Linux
@@ -103,23 +105,28 @@ sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin 
     ```
 
 4.  **Environment Configuration**
+
     *Note: Create a `.env` file based on `.env.example`:*
+
     ```bash
     cp .env.example .env
     # Edit .env and input your API Keys
     ```
 
 5.  **Start Database**
+
     *Note: ⚠️ Important for Linux Users: OpenSearch requires increased memory map limits. If you skip this, the container may crash (Exit Code 137).*
+
     ```bash
     # 1. Set memory limit (Linux only)
     sudo sysctl -w vm.max_map_count=262144
 
     # 2. Start containers
-    # (Note: Use sudo if your user is not in the docker group)
+
+    # Note: Use sudo if your user is not in the docker group
+    
     sudo docker compose up -d
     ```
-## 🏃‍♂️ Usage
 
 ### 1. Initialize OpenSearch Index (Layer 3)
 Set up the vector index in OpenSearch.
