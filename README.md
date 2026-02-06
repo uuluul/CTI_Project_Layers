@@ -51,22 +51,46 @@ Instead of a hardcoded threshold, the system automatically learns from the envir
 ### 3. Optimization
 * **Vector Reuse**: Retrieves pre-calculated vectors directly from OpenSearch during calibration, reducing LLM API costs and latency by **~90%**.
 
-## 🚀 Getting Started
+## 🚀 Installation & Setup
 
-### Prerequisites
-* Python 3.10+
-* Docker Desktop (for OpenSearch)
-* OpenAI API Key (or Azure OpenAI Key)
+### 0. Prerequisites (System Preparation)
 
-### Installation
+* **Python 3.10+**
+* **Docker & Docker Compose**
+
+<details>
+<summary><strong>🐧 Ubuntu/Linux Users: Click here for Docker Installation Guide</strong></summary>
+
+If you haven't installed Docker yet, run these commands:
+
+```bash
+# 1. Add Docker's official GPG key
+sudo apt-get update
+sudo apt-get install ca-certificates curl gnupg
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# 2. Add the repository to Apt sources
+echo \
+"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+$(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# 3. Install Docker packages
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+</details>
 
 1.  **Clone the repository**
     ```bash
-    git clone [https://github.com/uuluul/CTI_Project_Layers.git](https://github.com/uuluul/CTI_Project_Layers.git)
+    git clone https://github.com/uuluul/CTI_Project_Layers.git
     cd CTI_Project_Layers
     ```
 
 2.  **Set up Virtual Environment**
+    *Note: Ubuntu users note: You may need to install the venv package first: sudo apt install python3.10-venv*
     ```bash
     python -m venv .venv
     source .venv/bin/activate  # Mac/Linux
@@ -79,17 +103,22 @@ Instead of a hardcoded threshold, the system automatically learns from the envir
     ```
 
 4.  **Environment Configuration**
-    Create a `.env` file based on `.env.example`:
+    *Note: Create a `.env` file based on `.env.example`:*
     ```bash
     cp .env.example .env
     # Edit .env and input your API Keys
     ```
 
 5.  **Start Database**
+    *Note: ⚠️ Important for Linux Users: OpenSearch requires increased memory map limits. If you skip this, the container may crash (Exit Code 137).*
     ```bash
-    docker-compose up -d
-    ```
+    # 1. Set memory limit (Linux only)
+    sudo sysctl -w vm.max_map_count=262144
 
+    # 2. Start containers
+    # (Note: Use sudo if your user is not in the docker group)
+    sudo docker compose up -d
+    ```
 ## 🏃‍♂️ Usage
 
 ### 1. Initialize OpenSearch Index (Layer 3)
@@ -143,24 +172,12 @@ python -m src.detect_anomaly
 └── requirements.txt    # Python dependencies
 ```
 
-## 🔧 Troubleshooting & Compatibility Note
+## 🔮 Future Roadmap & Production Considerations
 
-### 🐧 For Linux (Ubuntu/Kali) Users
-If you encounter errors running commands, please check the following:
+To scale this project for enterprise production environments, the following architecture upgrades are recommended:
 
-1.  **Python Command**:
-    Some Linux distributions require `python3` instead of `python`.
-    ```bash
-    python3 -m src.run_pipeline
-    ```
-
-2.  **Docker Compose Command**:
-    Newer versions of Docker Desktop use `docker compose` (no hyphen).
-    ```bash
-    docker compose up -d
-    # Or if you need sudo permissions:
-    sudo docker compose up -d
-    ```
-
-### 🔒 OpenSearch Version
-This project is pinned to **OpenSearch v2.11.1** in `docker-compose.yml` to ensure stability with the `opensearch-py` client.
+* **Log Collector**: Replace the Python ingestion script with **Fluent Bit** or **Data Prepper** for high-throughput, reliable log streaming.
+* **Cluster Scalability**: Deploy OpenSearch in a multi-node cluster architecture (3+ nodes) for high availability.
+* **Hybrid Anomaly Detection**:
+    * Use **OpenSearch Anomaly Detection (Random Cut Forest)** for time-series anomalies (e.g., CPU spikes, traffic surges).
+    * Keep **Layer 5 (Vector Search)** specifically for *semantic* anomalies (e.g., obfuscated command lines, social engineering context), which traditional statistical detectors cannot capture.
