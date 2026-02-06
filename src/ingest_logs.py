@@ -14,6 +14,7 @@ client = OpenSearch(
 )
 index_name = "security-logs-knn"
 
+# 這邊是預設的白名單 pre-defined set of synthetic logs for demonstration purposes
 normal_logs = [
     # SSH / Login 類
     "User admin logged in successfully from IP 192.168.1.5 via SSH.",
