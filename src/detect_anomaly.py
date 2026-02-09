@@ -93,7 +93,7 @@ def _anomaly_score_from_hits(hits, k=K, method="kth"):
 def calibrate_threshold(sample_n=CALIB_SAMPLE_N, k=K, quantile=QUANTILE,
                         filters=None, score_method="kth", seed=42):
     """
-    從 baseline 抽樣 N 筆，計算建議的 threshold
+    從 baseline 抽樣 N 筆，計算 threshold
     """
     random.seed(seed)
     print(f"\n   正在進行自動校正 (Calibration)...")
@@ -199,9 +199,9 @@ def detect(log_text, threshold, k=K, filters=None, score_method="kth", print_top
     print(f"   -> threshold (P{int(QUANTILE*100)}) = {threshold:.4f}")
 
     if anomaly_score > threshold:
-        print(f"🔴 [異常 DETECTED] Score {anomaly_score:.4f} > {threshold:.4f}")
+        print(f"  [異常 DETECTED] Score {anomaly_score:.4f} > {threshold:.4f}")
     else:
-        print(f"🟢 [正常 BENIGN] Score {anomaly_score:.4f} <= {threshold:.4f}")
+        print(f"  [正常 BENIGN] Score {anomaly_score:.4f} <= {threshold:.4f}")
 
 
 if __name__ == "__main__":
